@@ -14,7 +14,7 @@ const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 client.once('ready', () => {
   console.log('Bot is ready!');
 });
-app.get('/api/Darkbear', async (req, res) => {
+app.get('/api/darkbear', async (req, res) => {
   let jobId = null;
   let playerCount = null;
   let bossName = null;
