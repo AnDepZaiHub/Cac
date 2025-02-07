@@ -1,10 +1,10 @@
 {
   "name": "hopApi",
   "version": "1.0.0",
-  "description": "API project using AnBeoNangTa2.js",
-  "main": "AnBeoNangTa2.js",
+  "description": "API project using api.js",
+  "main": "api.js",
   "scripts": {
-    "start": "node AnBeoNangTa2.js"
+    "start": "node api.js"
   },
   "keywords": [],
   "author": "Your Name",
