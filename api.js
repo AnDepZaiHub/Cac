@@ -40,7 +40,7 @@ app.get('/api/status', async (req, res) => {
     }
 
     // Lấy tin nhắn gần nhất từ channel
-    const messages = await channel.messages.fetch({ limit: 5 });
+    const messages = await channel.messages.fetch({ limit: 1 });
 
     if (messages.size === 0) {
       return res.status(404).json({
