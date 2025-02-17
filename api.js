@@ -1,94 +1,71 @@
-require('dotenv').config();  // Nạp các biến môi trường từ tệp .env
-
+require('dotenv').config();
 const express = require('express');
 const { Client, GatewayIntentBits } = require('discord.js');
-const app = express();
+const NodeCache = require("node-cache");
 
-// Khởi tạo bot Discord với intents cần thiết
+const app = express();
+const cache = new NodeCache({ stdTTL: 30 }); // Lưu cache trong 30 giây
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,  // Cần intent để truy cập vào tin nhắn
+    GatewayIntentBits.GuildMessages,
   ],
 });
 
-// Lấy token bot và channel ID từ biến môi trường
-const TOKEN = process.env.DISCORD_BOT_TOKEN;  // Lấy token từ .env
-const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;  // Lấy Channel ID từ .env
+const TOKEN = process.env.DISCORD_BOT_TOKEN;
+const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 
-// Đảm bảo bot đã đăng nhập trước khi trả lời API
 client.once('ready', () => {
   console.log('Bot is ready!');
 });
 
-// API kiểm tra webhook và trả về jobId, playerCount và bossName nếu có
+// API kiểm tra trạng thái server
 app.get('/api/status', async (req, res) => {
-  let jobId = null;
-  let playerCount = null;
-  let bossName = null;
-  let responseSent = false;
-
   try {
+    // Kiểm tra cache trước
+    const cachedData = cache.get("status");
+    if (cachedData) {
+      return res.json({ status: 'success', data: cachedData });
+    }
+
     // Lấy channel từ Discord
     const channel = await client.channels.fetch(CHANNEL_ID);
-
     if (!channel) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Channel not found',
-      });
+      return res.status(404).json({ status: 'error', message: 'Channel not found' });
     }
 
-    // Lấy tin nhắn gần nhất từ channel
+    // Lấy tin nhắn gần nhất
     const messages = await channel.messages.fetch({ limit: 1 });
-
     if (messages.size === 0) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'No messages found in this channel',
-      });
+      return res.status(404).json({ status: 'error', message: 'No messages found' });
     }
 
-    // Kiểm tra các tin nhắn và tìm jobId, playerCount, bossName
+    let jobId = null, playerCount = null, bossName = null;
+
+    // Duyệt qua tin nhắn để tìm thông tin cần thiết
     messages.each((message) => {
       message.embeds.forEach((embed) => {
         embed.fields.forEach((field) => {
-          // Tìm thông tin Job Id
-          if (field.name === 'Job Id') {
-            jobId = field.value;
-          }
-
-          // Tìm thông tin Player Count
-          if (field.name === 'Player Count') {
-            playerCount = field.value;
-          }
-
-          // Tìm thông tin Boss Name và chỉ lấy những tên boss cụ thể
-          if (field.name === 'Boss Name') {
-            if (field.value === 'rip_indra True Form') {
-              bossName = field.value;
-            }
+          if (field.name === 'Job Id') jobId = field.value;
+          if (field.name === 'Player Count') playerCount = field.value;
+          if (field.name === 'Boss Name' && field.value === 'rip_indra True Form') {
+            bossName = field.value;
           }
         });
       });
+    });
 
-      if (jobId && playerCount && bossName && !responseSent) {
-        responseSent = true;
-        return res.json({
-          status: 'success',
-          data: {
-            playerCount: playerCount,
-            jobId: jobId,
-            bossName: bossName,
-          },
-        });
-      }
-    });
+    // Nếu đủ dữ liệu thì lưu vào cache
+    if (jobId && playerCount && bossName) {
+      const responseData = { jobId, playerCount, bossName };
+      cache.set("status", responseData);
+      return res.json({ status: 'success', data: responseData });
+    } else {
+      return res.status(404).json({ status: 'error', message: 'Required data not found' });
+    }
   } catch (error) {
-    return res.status(500).json({
-      status: 'error',
-      message: error.message,
-    });
+    return res.status(500).json({ status: 'error', message: error.message });
   }
 });
 
